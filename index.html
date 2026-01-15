@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>yasWav | Convert audio to WAV!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+        
+        :root {
+            --accent: #ff007f;
+            --bg: #000000;
+            --card: #0e0e0e;
+            --border: #1a1a1a;
+            --text-source: #b0b0b0;
+            --drag-handle: #eeeeee;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: var(--bg); 
+            color: white; 
+            min-height: 100vh; 
+            padding: 30px 15px;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .upload-area {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+            height: 180px;
+        }
+
+        .upload-area.compact {
+            height: 75px;
+            margin-bottom: 25px;
+        }
+
+        .upload-area.compact .upload-icon-box { transform: scale(0.65); }
+        .upload-area.compact .upload-text { opacity: 0; pointer-events: none; }
+
+        /* FIX: Center Icon + Precisely */
+        .upload-icon-box {
+            width: 54px;
+            height: 54px;
+            background: #161616;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.4s ease;
+            line-height: 0;
+        }
+
+        .file-card { 
+            background: #0a0a0a; 
+            border: 1px solid var(--border); 
+            border-radius: 14px;
+            padding: 12px;
+        }
+
+        .drag-handle {
+            cursor: grab;
+            color: var(--drag-handle);
+            padding: 4px;
+            opacity: 0.9;
+            display: flex;
+            align-items: center;
+        }
+
+        .sortable-drag {
+            opacity: 1 !important;
+            background: #151515 !important;
+            border: 1px solid var(--accent) !important;
+            box-shadow: 0 15px 35px rgba(255, 0, 127, 0.25);
+            cursor: grabbing;
+        }
+
+        .rename-input {
+            background: transparent;
+            border: none;
+            color: var(--accent);
+            font-weight: 700;
+            font-size: 1.05rem;
+            width: 100%;
+            outline: none;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: #0f0f0f;
+            border: 1px solid #222;
+            padding: 30px;
+            border-radius: 24px;
+            max-width: 450px;
+            width: 100%;
+            animation: modalScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes modalScale {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        ::-webkit-scrollbar { width: 0px; }
+    </style>
+</head>
+<body class="flex justify-center">
+
+    <div id="helpModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="text-2xl font-black mb-4 uppercase italic">Penjelasan <span style="color: var(--accent);">Fitur</span></h2>
+            <ul class="space-y-3 text-sm text-gray-400">
+                <li><b>1. Auto Rename:</b></li>
+                <li>adalah fitur khusus modder valstrike(kill sound), yang dimana akan otomatis rename file .wav jadi 1-5 — (auto rename akan lebih akurat jika anda mendownload audio dari valorant.fandom)</li>
+                <li>-</li>
+                <li><b>2. Drag n Drop ⠿ </b></li>
+                <li>Jika auto rename tidak akurat, anda bisa urutkan sendiri(tekan tombol ⠿ untuk geser), klik Auto Rename maka akan 100% akurat</li>
+                <li>-</li>
+                <li><b>3. Rename manual</b></li>
+                <li>Anda bisa rename file manual, dengan cara klik namma file tsb</li>
+            </ul>
+            <button onclick="toggleModal()" class="w-full mt-8 bg-[#ff007f] text-white font-bold py-3 rounded-xl uppercase tracking-widest text-[10px]">Tutup</button>
+        </div>
+    </div>
+
+    <div class="w-full max-w-lg">
+        <div class="flex justify-between items-center mb-8 px-1">
+            <div class="text-left">
+                <h1 class="text-4xl font-black tracking-tighter italic uppercase leading-none text-white">.Wav<span style="color: var(--accent);">Converter</span></h1>
+                <p class="text-gray-700 font-bold tracking-[0.3em] text-[8px] uppercase mt-1">@yasaaoursea</p>
+            </div>
+            <button onclick="toggleModal()" class="text-[9px] font-black tracking-widest text-gray-300 uppercase border border-gray-700 px-4 py-2 rounded-lg hover:border-white transition-all">
+                ?
+            </button>
+        </div>
+
+        <div id="uploadBox" class="upload-area flex flex-col items-center justify-center cursor-pointer relative group mb-8 overflow-hidden">
+            <input type="file" id="audioInput" accept="audio/*,.zip" multiple class="absolute inset-0 opacity-0 cursor-pointer z-10">
+            <div class="upload-icon-box border border-transparent group-hover:border-[#ff007f55]">
+                <!-- FIX: Path Icon Centered -->
+                <svg class="w-6 h-6 text-gray-400 group-hover:text-[#ff007f]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+            </div>
+            <div class="upload-text mt-4 text-center">
+                <p class="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Upload sound / .zip</p>
+            </div>
+        </div>
+
+        <div id="toolbar" class="hidden flex justify-between items-center mb-5 px-1">
+            <button id="autoRenameBtn" class="text-[9px] font-black tracking-widest text-white uppercase bg-[#ff007f] px-6 py-3 rounded-xl hover:opacity-80 transition-all active:scale-95">
+                AUTO RENAME
+            </button>
+            <span id="fileCount" class="text-[9px] text-gray-700 font-black tracking-widest uppercase">0 ITEMS</span>
+        </div>
+
+        <div id="queue-container" class="space-y-3 mb-10"></div>
+
+        <div id="progress-wrapper" class="mb-10 hidden bg-[#050505] p-6 rounded-2xl border border-[#111]">
+            <div class="flex justify-between text-[8px] font-black uppercase tracking-widest mb-3">
+                <span style="color: var(--accent);">Processing</span>
+                <span id="progress-percent" class="text-gray-500 font-bold">0%</span>
+            </div>
+            <div class="w-full bg-[#111] h-[2px] rounded-full overflow-hidden">
+                <div id="progress-bar" class="w-0 h-full transition-all duration-300" style="background: var(--accent); box-shadow: 0 0 10px var(--accent);"></div>
+            </div>
+        </div>
+
+        <button id="convertBtn" class="hidden w-full bg-white text-black font-black py-6 rounded-2xl hover:bg-[#ff007f] hover:text-white transition-all transform active:scale-[0.98] uppercase tracking-[0.4em] text-[11px]">
+            Convert
+        </button>
+    </div>
+
+    <script>
+        const audioInput = document.getElementById('audioInput');
+        const queueContainer = document.getElementById('queue-container');
+        const uploadBox = document.getElementById('uploadBox');
+        const convertBtn = document.getElementById('convertBtn');
+        const autoRenameBtn = document.getElementById('autoRenameBtn');
+        const progressBar = document.getElementById('progress-bar');
+        const progressWrapper = document.getElementById('progress-wrapper');
+        const progressPercent = document.getElementById('progress-percent');
+        const toolbar = document.getElementById('toolbar');
+        const fileCountTxt = document.getElementById('fileCount');
+
+        let fileQueue = [];
+        const nSort = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
+
+        function toggleModal() {
+            const modal = document.getElementById('helpModal');
+            modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
+        }
+
+        new Sortable(queueContainer, {
+            animation: 180,
+            handle: '.drag-handle',
+            forceFallback: true,
+            onEnd: function() {
+                const newOrder = [];
+                queueContainer.querySelectorAll('.file-card').forEach(el => {
+                    const id = el.getAttribute('data-id');
+                    newOrder.push(fileQueue.find(i => i.id === id));
+                });
+                fileQueue = newOrder;
+            }
+        });
+
+        audioInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            files.sort((a, b) => nSort.compare(a.name, b.name));
+            for (const file of files) {
+                if (file.name.toLowerCase().endsWith('.zip')) await handleZip(file);
+                else addFile(file);
+            }
+            renderUI();
+        });
+
+        async function handleZip(file) {
+            const zip = await JSZip.loadAsync(file);
+            const entries = [];
+            zip.forEach((path, entry) => { if (!entry.dir && /\.(mp3|wav|ogg|flac|m4a)$/i.test(path)) entries.push(entry); });
+            entries.sort((a, b) => nSort.compare(a.name, b.name));
+            for (const entry of entries) {
+                const blob = await entry.async("blob");
+                addFile(new File([blob], entry.name.split('/').pop()));
+            }
+        }
+
+        function addFile(file) {
+            fileQueue.push({
+                id: Math.random().toString(36).substr(2, 9),
+                file: file,
+                originalName: file.name,
+                customName: file.name.substring(0, file.name.lastIndexOf('.')) || file.name
+            });
+        }
+
+        autoRenameBtn.addEventListener('click', () => {
+            fileQueue.forEach((item, index) => { item.customName = (index + 1).toString(); });
+            renderUI();
+        });
+
+        function renderUI() {
+            queueContainer.innerHTML = '';
+            fileQueue.forEach((item) => {
+                const div = document.createElement('div');
+                div.className = 'file-card flex items-center gap-2';
+                div.setAttribute('data-id', item.id);
+                div.innerHTML = `
+                    <div class="drag-handle w-7 flex-shrink-0">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M7 7h2v2H7V7zm0 4h2v2H7v-2zm0 4h2v2H7v-2zm4-8h2v2h-2V7zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"/></svg>
+                    </div>
+                    <div style="color: var(--accent);" class="px-2 flex-shrink-0">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                    </div>
+                    <div class="flex-1 min-w-0 px-1">
+                        <span class="text-[8px] font-black uppercase tracking-widest" style="color: var(--accent);">Output Name</span>
+                        <input type="text" value="${item.customName}" 
+                            oninput="updateVal('${item.id}', this.value)"
+                            class="rename-input" spellcheck="false">
+                        <p style="color: var(--text-source);" class="text-[9px] font-medium truncate">Source: ${item.originalName}</p>
+                    </div>
+                    <button onclick="removeF('${item.id}')" class="text-gray-400 hover:text-red-500 px-3 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                `;
+                queueContainer.appendChild(div);
+            });
+            updateState();
+        }
+
+        function updateState() {
+            const has = fileQueue.length > 0;
+            convertBtn.classList.toggle('hidden', !has);
+            toolbar.classList.toggle('hidden', !has);
+            fileCountTxt.innerText = `${fileQueue.length} ITEMS`;
+            if (has) uploadBox.classList.add('compact');
+            else uploadBox.classList.remove('compact');
+        }
+
+        window.updateVal = (id, val) => {
+            const item = fileQueue.find(i => i.id === id);
+            if (item) item.customName = val;
+        };
+
+        window.removeF = (id) => {
+            fileQueue = fileQueue.filter(i => i.id !== id);
+            renderUI();
+        };
+
+        convertBtn.addEventListener('click', async () => {
+            if (fileQueue.length === 0) return;
+            convertBtn.disabled = true;
+            progressWrapper.classList.remove('hidden');
+            const zip = new JSZip();
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            const firstOrig = fileQueue[0].originalName;
+            const cleanOrig = firstOrig.substring(0, firstOrig.lastIndexOf('.')) || firstOrig;
+            const zipName = `@huuuuft_wav — ${cleanOrig}.zip`;
+
+            for (let i = 0; i < fileQueue.length; i++) {
+                const item = fileQueue[i];
+                const progress = Math.round((i / fileQueue.length) * 100);
+                progressBar.style.width = `${progress}%`;
+                progressPercent.innerText = `${progress}%`;
+                try {
+                    const buf = await item.file.arrayBuffer();
+                    const decoded = await audioCtx.decodeAudioData(buf);
+                    const targetSR = 22050; 
+                    const offline = new OfflineAudioContext(1, decoded.duration * targetSR, targetSR);
+                    const src = offline.createBufferSource();
+                    src.buffer = decoded;
+                    src.connect(offline.destination).start();
+                    const rendered = await offline.startRendering();
+                    zip.file(`${item.customName}.wav`, bufferToW(rendered));
+                } catch (e) { console.error(e); }
+            }
+
+            const content = await zip.generateAsync({ type: "blob" });
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url; a.download = zipName; a.click();
+            setTimeout(() => { progressWrapper.classList.add('hidden'); convertBtn.disabled = false; }, 2000);
+        });
+
+        function bufferToW(ab) {
+            let l = ab.length, length = l * 2 + 44, buffer = new ArrayBuffer(length), view = new DataView(buffer), pos = 0;
+            const s16 = (d) => { view.setUint16(pos, d, true); pos += 2; };
+            const s32 = (d) => { view.setUint32(pos, d, true); pos += 4; };
+            s32(0x46464952); s32(length - 8); s32(0x45564157);
+            s32(0x20746d66); s32(16); s16(1); s16(1);
+            s32(22050); s32(22050 * 2); s16(2); s16(16);
+            s32(0x61746164); s32(length - pos - 4);
+            let d = ab.getChannelData(0);
+            for (let i = 0; i < d.length; i++) {
+                let s = Math.max(-1, Math.min(1, d[i]));
+                view.setInt16(pos, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                pos += 2;
+            }
+            return new Blob([buffer], { type: "audio/wav" });
+        }
+    </script>
+</body>
+</html>
