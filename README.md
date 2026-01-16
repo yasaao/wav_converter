@@ -17,7 +17,7 @@ Format dikunci secara permanen pada standar modding profesional:
 - **Manual Reorder:** Drag handle `⠿` untuk pengaturan urutan presisi.
 - **Batch Processing:** Mendukung impor/ekspor massal via file `.zip`.
 - **Smart Auto-Rename:** Penamaan otomatis (1-5) untuk kebutuhan Kill Sound Valstrike.
-- **Local Conversion:** Pemrosesan 100% di browser. Tidak ada data yang diunggah ke server.
+- **Rename Manual:** Penamaan manual oleh user.
 
 ### 🕹 Penggunaan
 1. **Import:** Masukkan file audio atau `.zip`.
@@ -26,4 +26,4 @@ Format dikunci secara permanen pada standar modding profesional:
 4. **Convert:** Klik tombol **Convert** untuk mengekspor paket audio dalam format ZIP.
 
 ---
-Developed by **[@yasaaoursea](https://github.com/yasaaoursea)**
+Developed by **[@yasaaoursea](https://github.com/yasaao)**
